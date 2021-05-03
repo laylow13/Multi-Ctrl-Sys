@@ -32,7 +32,9 @@ class Px4Controller:
         self.frame = "BODY"
 
         self.state = None
-        self.isvel=False
+        self.isvel = False
+        self.space_limit = {'x1': 0, 'x2': 0, 'y1': 0, 'y2': 0, 'z': 1}
+        self.space_limit_enable = False
 
         '''
         ros subscribers
@@ -72,21 +74,25 @@ class Px4Controller:
 
     def start(self):
         rospy.init_node("offboard_node")
+
         for i in range(10):
             if self.current_heading is not None:
                 break
             else:
                 print("Waiting for initialization.")
                 time.sleep(0.5)
+
         self.cur_target_pose = self.construct_target(
             0, 0, self.takeoff_height, self.current_heading)
+        self.cur_target_vel = self.construct_vel_target(0, 0, 0.3)
 
-        #print ("self.cur_target_pose:", self.cur_target_pose, type(self.cur_target_pose))
         rate = rospy.Rate(20)
 
         for i in range(100):
             self.local_target_pub.publish(self.cur_target_pose)
             rate.sleep()
+
+        self.space_limit_enable = False
 
         # if self.takeoff_detection():
         #     print("Vehicle Took Off!")
@@ -125,23 +131,15 @@ class Px4Controller:
                 if(self.disarm()):
                     self.state = "DISARMED"
 
-            if(i < 500):
-                # self.isvel=True
-                # self.local_target_pub.publish(
-                    # self.construct_target(0, 0, 0, 0, 0, vx=1, vy=0,vz=1))
+            if self.space_limit_enable:
+                self.space_limit_detection()
+
+            if not self.isvel:
                 self.local_target_pub.publish(self.cur_target_pose)
             else:
-                self.isvel=True
-                self.local_target_pub.publish(
-                    self.construct_target(0, 0, 0, 0, 0, vx=1, vy=0,vz=1))
+                self.local_vel_pub.publish(self.cur_target_vel)
             # else:
-            #     target_vel = Twist()
-            #     target_vel.linear.x = (i % 100)/50
-            #     target_vel.linear.y = 5*math.sin(target_vel.linear.x)
-            #     target_vel.linear.z = 0
-            #     target_vel.angular.x = 0
-            #     target_vel.angular.y = 0
-            #     target_vel.angular.z = 0
+
             #     self.local_vel_pub.publish(target_vel)
 
             # print(self.mavros_state)
@@ -154,7 +152,7 @@ class Px4Controller:
         target_raw_pose = PositionTarget()
         target_raw_pose.header.stamp = rospy.Time.now()
         target_raw_pose.coordinate_frame = 9
-       
+
         if not self.isvel:
             # print("Position setpoint mode")
             target_raw_pose.position.x = x
@@ -162,10 +160,10 @@ class Px4Controller:
             target_raw_pose.position.z = z
 
             target_raw_pose.type_mask = PositionTarget.IGNORE_AFX + \
-            PositionTarget.IGNORE_AFY + PositionTarget.IGNORE_AFZ\
-            +PositionTarget.FORCE+PositionTarget.IGNORE_VX+\
-            PositionTarget.IGNORE_VY+PositionTarget.IGNORE_VZ
-            
+                PositionTarget.IGNORE_AFY + PositionTarget.IGNORE_AFZ\
+                + PositionTarget.FORCE+PositionTarget.IGNORE_VX +\
+                PositionTarget.IGNORE_VY+PositionTarget.IGNORE_VZ
+
         else:
             # print("Velocity setpoint mode\n")
             target_raw_pose.velocity.x = vx
@@ -176,9 +174,9 @@ class Px4Controller:
             # PositionTarget.IGNORE_PY+PositionTarget.IGNORE_PZ
 
             target_raw_pose.type_mask = PositionTarget.IGNORE_AFX + \
-            PositionTarget.IGNORE_AFY + PositionTarget.IGNORE_AFZ\
-            +PositionTarget.FORCE+PositionTarget.IGNORE_PX+\
-            PositionTarget.IGNORE_PY+PositionTarget.IGNORE_PZ
+                PositionTarget.IGNORE_AFY + PositionTarget.IGNORE_AFZ\
+                + PositionTarget.FORCE+PositionTarget.IGNORE_PX +\
+                PositionTarget.IGNORE_PY+PositionTarget.IGNORE_PZ
 
         # target_raw_pose.type_mask = PositionTarget.IGNORE_VX + PositionTarget.IGNORE_VY + PositionTarget.IGNORE_VZ \
         #     + PositionTarget.IGNORE_AFX + PositionTarget.IGNORE_AFY + PositionTarget.IGNORE_AFZ \
@@ -193,6 +191,32 @@ class Px4Controller:
     cur_p : poseStamped
     target_p: positionTarget
     '''
+
+    def construct_vel_target(self, lx, ly, lz, ax=0, ay=0, az=0):
+        target_vel = Twist()
+        target_vel.linear.x = lx
+        target_vel.linear.y = ly
+        target_vel.linear.z = lz
+        target_vel.angular.x = ax
+        target_vel.angular.y = ay
+        target_vel.angular.z = az
+        return target_vel
+
+    def set_space_limit(self, x1, x2, y1, y2, z):
+        self.space_limit['x1'] = x1
+        self.space_limit['x2'] = x2
+        self.space_limit['x1'] = x1
+        self.space_limit['x2'] = x2
+        self.space_limit['z'] = z
+
+    def space_limit_detection(self):
+        if (self.local_pose.pose.position.x <= self.space_limit['x2'] and self.local_pose.pose.position.x >= self.space_limit['x1']
+            and self.local_pose.pose.position.y <= self.space_limit['y2'] and self.local_pose.pose.position.y >= self.space_limit['y1']
+                and self.local_pose.pose.position.z <= self.space_limit['z']):
+            pass
+        else:
+            self.isvel = False
+            # like failsafe options
 
     def position_distance(self, cur_p, target_p, threshold=0.1):
         delta_x = math.fabs(cur_p.pose.position.x - target_p.position.x)
