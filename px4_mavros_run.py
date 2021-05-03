@@ -70,7 +70,13 @@ class Px4Controller:
         self.flightModeService = rospy.ServiceProxy(
             '/mavros/set_mode', SetMode)
 
+        '''
+        ros parameters
+        '''
+        rospy.set_param('/mavros/isvel',False)
+
         print("Px4 Controller Initialized!")
+
 
     def start(self):
         rospy.init_node("offboard_node")
@@ -130,6 +136,8 @@ class Px4Controller:
             elif (self.state is "LAND") and (self.local_pose.pose.position.z < 0.15):
                 if(self.disarm()):
                     self.state = "DISARMED"
+
+            self.isvel=rospy.get_param('/mavros/isvel')
 
             if self.space_limit_enable:
                 self.space_limit_detection()
