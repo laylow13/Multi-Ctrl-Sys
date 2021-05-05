@@ -159,32 +159,17 @@ class Px4Controller:
     def construct_target(self, x, y, z, yaw, yaw_rate=1, vx=0, vy=0, vz=0):
         target_raw_pose = PositionTarget()
         target_raw_pose.header.stamp = rospy.Time.now()
-        target_raw_pose.coordinate_frame = 9
+        target_raw_pose.coordinate_frame = 1
 
-        if not self.isvel:
-            # print("Position setpoint mode")
-            target_raw_pose.position.x = x
-            target_raw_pose.position.y = y
-            target_raw_pose.position.z = z
+        # print("Position setpoint mode")
+        target_raw_pose.position.x = x
+        target_raw_pose.position.y = y
+        target_raw_pose.position.z = z
 
-            target_raw_pose.type_mask = PositionTarget.IGNORE_AFX + \
-                PositionTarget.IGNORE_AFY + PositionTarget.IGNORE_AFZ\
-                + PositionTarget.FORCE+PositionTarget.IGNORE_VX +\
-                PositionTarget.IGNORE_VY+PositionTarget.IGNORE_VZ
-
-        else:
-            # print("Velocity setpoint mode\n")
-            target_raw_pose.velocity.x = vx
-            target_raw_pose.velocity.y = vy
-            target_raw_pose.velocity.z = vz
-
-            # target_raw_pose.type_mask =PositionTarget.FORCE+PositionTarget.IGNORE_PX+\
-            # PositionTarget.IGNORE_PY+PositionTarget.IGNORE_PZ
-
-            target_raw_pose.type_mask = PositionTarget.IGNORE_AFX + \
-                PositionTarget.IGNORE_AFY + PositionTarget.IGNORE_AFZ\
-                + PositionTarget.FORCE+PositionTarget.IGNORE_PX +\
-                PositionTarget.IGNORE_PY+PositionTarget.IGNORE_PZ
+        target_raw_pose.type_mask = PositionTarget.IGNORE_AFX + \
+            PositionTarget.IGNORE_AFY + PositionTarget.IGNORE_AFZ\
+            + PositionTarget.FORCE+PositionTarget.IGNORE_VX +\
+            PositionTarget.IGNORE_VY+PositionTarget.IGNORE_VZ
 
         # target_raw_pose.type_mask = PositionTarget.IGNORE_VX + PositionTarget.IGNORE_VY + PositionTarget.IGNORE_VZ \
         #     + PositionTarget.IGNORE_AFX + PositionTarget.IGNORE_AFY + PositionTarget.IGNORE_AFZ \
